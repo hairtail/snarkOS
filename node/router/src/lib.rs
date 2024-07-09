@@ -402,12 +402,7 @@ impl<N: Network> Router<N> {
             ]
         } else if N::ID == snarkvm::console::network::TestnetV0::ID {
             // TestnetV0 contains the following bootstrap peers.
-            vec![
-                SocketAddr::from_str("34.168.118.156:4130").unwrap(),
-                SocketAddr::from_str("35.231.152.213:4130").unwrap(),
-                SocketAddr::from_str("34.17.53.129:4130").unwrap(),
-                SocketAddr::from_str("35.200.149.162:4130").unwrap(),
-            ]
+            vec![]
         } else if N::ID == snarkvm::console::network::CanaryV0::ID {
             // CanaryV0 contains the following bootstrap peers.
             vec![
