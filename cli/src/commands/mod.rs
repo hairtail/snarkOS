@@ -16,12 +16,14 @@ mod account;
 pub use account::*;
 
 mod clean;
+use axum::{response::IntoResponse, Json};
 pub use clean::*;
 
 mod developer;
 pub use developer::*;
 
 mod start;
+use serde::{Deserialize, Serialize};
 pub use start::*;
 
 mod update;
@@ -30,6 +32,7 @@ pub use update::*;
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
 use clap::{builder::Styles, Parser};
+use ureq::json;
 
 const HEADER_COLOR: Option<Color> = Some(Color::Ansi(AnsiColor::Yellow));
 const LITERAL_COLOR: Option<Color> = Some(Color::Ansi(AnsiColor::Green));
@@ -73,6 +76,34 @@ impl Command {
             Self::Start(command) => command.parse(),
             Self::Update(command) => command.parse(),
         }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct TransferRequest {
+    pub inputs: Vec<String>,
+    pub private_key: String,
+    pub query: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct TransferResponse {
+    pub data: Option<String>,
+    pub error: Option<String>,
+}
+
+impl IntoResponse for TransferResponse {
+    fn into_response(self) -> axum::response::Response {
+        Json(json!({"code": 200, "data": self.data})).into_response()
+    }
+}
+
+pub async fn transfer_handler(Json(request): Json<TransferRequest>) -> impl IntoResponse {
+    let TransferRequest { inputs, private_key, query } = request;
+    let cli = Execute::new(inputs, private_key, query.clone(), Some(format!("{}/transaction/broadcast", query)));
+    match cli.parse() {
+        Ok(id) => TransferResponse { data: Some(id), error: None },
+        Err(e) => TransferResponse { data: None, error: Some(e.to_string()) },
     }
 }
 

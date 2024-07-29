@@ -74,6 +74,25 @@ pub struct Execute {
     pub storage_path: Option<PathBuf>,
 }
 
+impl Execute {
+    pub fn new(inputs: Vec<String>, private_key: String, query: String, broadcast: Option<String>) -> Self {
+        Self {
+            program_id: "credits.aleo".into(),
+            function: "transfer_public".into(),
+            private_key,
+            inputs,
+            network: 1,
+            query,
+            broadcast,
+            priority_fee: None,
+            record: None,
+            dry_run: false,
+            store: None,
+            storage_path: None,
+        }
+    }
+}
+
 impl Drop for Execute {
     /// Zeroize the private key when the `Execute` struct goes out of scope.
     fn drop(&mut self) {

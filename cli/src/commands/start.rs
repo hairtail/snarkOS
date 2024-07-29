@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use axum::{
+    http::{header::CONTENT_TYPE, Method},
+    routing::post,
+};
 use snarkos_account::Account;
 use snarkos_display::Display;
 use snarkos_node::{bft::MEMORY_POOL_PORT, router::messages::NodeType, Node};
@@ -45,7 +49,17 @@ use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc},
 };
-use tokio::runtime::{self, Runtime};
+use tokio::{
+    net::TcpListener,
+    runtime::{self, Runtime},
+    sync::oneshot,
+};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+
+use crate::commands::transfer_handler;
 
 /// The recommended minimum number of 'open files' limit for a validator.
 /// Validators should be able to handle at least 1000 concurrent connections, each requiring 2 sockets.
@@ -112,6 +126,8 @@ pub struct Start {
     /// Specify the IP address and port for the REST server
     #[clap(long = "rest")]
     pub rest: Option<SocketAddr>,
+    #[clap(long = "transfer")]
+    pub transfer: Option<SocketAddr>,
     /// Specify the requests per second (RPS) rate limit per IP for the REST server
     #[clap(default_value = "10", long = "rest-rps")]
     pub rest_rps: u32,
@@ -200,6 +216,23 @@ impl Start {
                 }
                 _ => panic!("Invalid network ID specified"),
             };
+            println!("Start transfer service now!");
+
+            if let Some(addr) = self.transfer {
+                let cors =
+                    CorsLayer::new().allow_origin(Any).allow_methods([Method::POST]).allow_headers([CONTENT_TYPE]);
+                let (router, handler) = oneshot::channel();
+                tokio::spawn(async move {
+                    let _ = router.send(());
+                    let routes = axum::Router::new().route("/transfer", post(transfer_handler));
+                    let router = routes.with_state(self.clone()).layer(TraceLayer::new_for_http()).layer(cors);
+                    let transfer_listener = TcpListener::bind(addr).await.unwrap();
+                    axum::serve(transfer_listener, router.into_make_service_with_connect_info::<SocketAddr>())
+                        .await
+                        .expect("couldn't start transfer server");
+                });
+                let _ = handler.await;
+            }
             // Note: Do not move this. The pending await must be here otherwise
             // other snarkOS commands will not exit.
             std::future::pending::<()>().await;
@@ -654,12 +687,10 @@ fn load_or_compute_genesis<N: Network>(
     preimage.extend(genesis_private_key.to_bytes_le()?);
     preimage.extend(committee.to_bytes_le()?);
     preimage.extend(&to_bytes_le![public_balances.iter().collect::<Vec<(_, _)>>()]?);
-    preimage.extend(&to_bytes_le![
-        bonded_balances
-            .iter()
-            .flat_map(|(staker, (validator, withdrawal, amount))| to_bytes_le![staker, validator, withdrawal, amount])
-            .collect::<Vec<_>>()
-    ]?);
+    preimage.extend(&to_bytes_le![bonded_balances
+        .iter()
+        .flat_map(|(staker, (validator, withdrawal, amount))| to_bytes_le![staker, validator, withdrawal, amount])
+        .collect::<Vec<_>>()]?);
 
     // Input the parameters' metadata based on network
     match N::ID {
@@ -766,10 +797,10 @@ mod tests {
 
         let config = Start::try_parse_from(["snarkos", "--peers", "1.2.3.4:5,6.7.8.9:0"].iter()).unwrap();
         assert!(config.parse_trusted_peers().is_ok());
-        assert_eq!(config.parse_trusted_peers().unwrap(), vec![
-            SocketAddr::from_str("1.2.3.4:5").unwrap(),
-            SocketAddr::from_str("6.7.8.9:0").unwrap()
-        ]);
+        assert_eq!(
+            config.parse_trusted_peers().unwrap(),
+            vec![SocketAddr::from_str("1.2.3.4:5").unwrap(), SocketAddr::from_str("6.7.8.9:0").unwrap()]
+        );
     }
 
     #[test]
@@ -784,10 +815,10 @@ mod tests {
 
         let config = Start::try_parse_from(["snarkos", "--validators", "1.2.3.4:5,6.7.8.9:0"].iter()).unwrap();
         assert!(config.parse_trusted_validators().is_ok());
-        assert_eq!(config.parse_trusted_validators().unwrap(), vec![
-            SocketAddr::from_str("1.2.3.4:5").unwrap(),
-            SocketAddr::from_str("6.7.8.9:0").unwrap()
-        ]);
+        assert_eq!(
+            config.parse_trusted_validators().unwrap(),
+            vec![SocketAddr::from_str("1.2.3.4:5").unwrap(), SocketAddr::from_str("6.7.8.9:0").unwrap()]
+        );
     }
 
     #[test]
