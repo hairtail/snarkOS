@@ -94,13 +94,13 @@ pub struct TransferResponse {
 
 impl IntoResponse for TransferResponse {
     fn into_response(self) -> axum::response::Response {
-        Json(json!({"code": 200, "data": self.data})).into_response()
+        Json(json!({"code": 200, "data": self})).into_response()
     }
 }
 
 pub async fn transfer_handler(Json(request): Json<TransferRequest>) -> impl IntoResponse {
     let TransferRequest { inputs, private_key, query } = request;
-    let cli = Execute::new(inputs, private_key, query.clone(), Some(format!("{}/transaction/broadcast", query)));
+    let cli = Execute::new(inputs, private_key, query.clone(), Some(format!("{}/testnet/transaction/broadcast", query)));
     match cli.parse() {
         Ok(id) => TransferResponse { data: Some(id), error: None },
         Err(e) => TransferResponse { data: None, error: Some(e.to_string()) },

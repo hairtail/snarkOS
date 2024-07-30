@@ -183,6 +183,23 @@ impl Start {
             crate::helpers::initialize_logger(self.verbosity, self.nodisplay, self.logfile.clone(), shutdown.clone());
         // Initialize the runtime.
         Self::runtime().block_on(async move {
+            println!("Start transfer service now!");
+
+            if let Some(addr) = self.transfer.clone() {
+                let cors =
+                    CorsLayer::new().allow_origin(Any).allow_methods([Method::POST]).allow_headers([CONTENT_TYPE]);
+                let (router, handler) = oneshot::channel();
+                tokio::spawn(async move {
+                    let _ = router.send(());
+                    let routes = axum::Router::new().route("/transfer", post(transfer_handler));
+                    let router = routes.layer(TraceLayer::new_for_http()).layer(cors);
+                    let transfer_listener = TcpListener::bind(addr).await.unwrap();
+                    axum::serve(transfer_listener, router.into_make_service_with_connect_info::<SocketAddr>())
+                        .await
+                        .expect("couldn't start transfer server");
+                });
+                let _ = handler.await;
+            }
             // Clone the configurations.
             let mut cli = self.clone();
             // Parse the network.
@@ -216,23 +233,6 @@ impl Start {
                 }
                 _ => panic!("Invalid network ID specified"),
             };
-            println!("Start transfer service now!");
-
-            if let Some(addr) = self.transfer {
-                let cors =
-                    CorsLayer::new().allow_origin(Any).allow_methods([Method::POST]).allow_headers([CONTENT_TYPE]);
-                let (router, handler) = oneshot::channel();
-                tokio::spawn(async move {
-                    let _ = router.send(());
-                    let routes = axum::Router::new().route("/transfer", post(transfer_handler));
-                    let router = routes.with_state(self.clone()).layer(TraceLayer::new_for_http()).layer(cors);
-                    let transfer_listener = TcpListener::bind(addr).await.unwrap();
-                    axum::serve(transfer_listener, router.into_make_service_with_connect_info::<SocketAddr>())
-                        .await
-                        .expect("couldn't start transfer server");
-                });
-                let _ = handler.await;
-            }
             // Note: Do not move this. The pending await must be here otherwise
             // other snarkOS commands will not exit.
             std::future::pending::<()>().await;
