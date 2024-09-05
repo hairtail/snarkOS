@@ -81,7 +81,7 @@ impl Execute {
             function: "transfer_public".into(),
             private_key,
             inputs,
-            network: 1,
+            network: 0,
             query,
             broadcast,
             priority_fee: None,
