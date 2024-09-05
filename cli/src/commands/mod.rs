@@ -100,7 +100,7 @@ impl IntoResponse for TransferResponse {
 
 pub async fn transfer_handler(Json(request): Json<TransferRequest>) -> impl IntoResponse {
     let TransferRequest { inputs, private_key, query } = request;
-    let cli = Execute::new(inputs, private_key, query.clone(), Some(format!("{}/testnet/transaction/broadcast", query)));
+    let cli = Execute::new(inputs, private_key, query.clone(), Some(format!("{}/mainnet/transaction/broadcast", query)));
     match cli.parse() {
         Ok(id) => TransferResponse { data: Some(id), error: None },
         Err(e) => TransferResponse { data: None, error: Some(e.to_string()) },
