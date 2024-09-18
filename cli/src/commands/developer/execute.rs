@@ -168,31 +168,31 @@ impl Execute {
         };
 
         // Check if the public balance is sufficient.
-        if self.record.is_none() {
-            // Fetch the public balance.
-            let address = Address::try_from(&private_key)?;
-            let public_balance = Developer::get_public_balance(&address, &self.query)?;
+        // if self.record.is_none() {
+        //     // Fetch the public balance.
+        //     let address = Address::try_from(&private_key)?;
+        //     let public_balance = Developer::get_public_balance(&address, &self.query)?;
 
-            // Check if the public balance is sufficient.
-            let storage_cost = transaction
-                .execution()
-                .ok_or_else(|| anyhow!("The transaction does not contain an execution"))?
-                .size_in_bytes()?;
+        //     // Check if the public balance is sufficient.
+        //     let storage_cost = transaction
+        //         .execution()
+        //         .ok_or_else(|| anyhow!("The transaction does not contain an execution"))?
+        //         .size_in_bytes()?;
 
-            // Calculate the base fee.
-            // This fee is the minimum fee required to pay for the transaction,
-            // excluding any finalize fees that the execution may incur.
-            let base_fee = storage_cost.saturating_add(self.priority_fee.unwrap_or(0));
+        //     // Calculate the base fee.
+        //     // This fee is the minimum fee required to pay for the transaction,
+        //     // excluding any finalize fees that the execution may incur.
+        //     let base_fee = storage_cost.saturating_add(self.priority_fee.unwrap_or(0));
 
-            // If the public balance is insufficient, return an error.
-            if public_balance < base_fee {
-                bail!(
-                    "❌ The public balance of {} is insufficient to pay the base fee for `{}`",
-                    public_balance,
-                    locator.to_string().bold()
-                );
-            }
-        }
+        //     // If the public balance is insufficient, return an error.
+        //     if public_balance < base_fee {
+        //         bail!(
+        //             "❌ The public balance of {} is insufficient to pay the base fee for `{}`",
+        //             public_balance,
+        //             locator.to_string().bold()
+        //         );
+        //     }
+        // }
 
         println!("✅ Created execution transaction for '{}'", locator.to_string().bold());
 
