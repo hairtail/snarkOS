@@ -13,11 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::str::FromStr;
+
 use super::*;
 use snarkos_node_router::{SYNC_LENIENCY, messages::UnconfirmedSolution};
 use snarkvm::{
     ledger::puzzle::Solution,
-    prelude::{Address, Identifier, LimitedWriter, Plaintext, ToBytes, block::Transaction},
+    prelude::{Address, Identifier, LimitedWriter, Plaintext, PrivateKey, ToBytes, block::Transaction},
 };
 
 use indexmap::IndexMap;
@@ -39,6 +41,13 @@ pub(crate) struct BlockRange {
 pub(crate) struct Metadata {
     metadata: Option<bool>,
     all: Option<bool>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct TransferRequest {
+    pub to: String,
+    pub amount: String,
+    pub private_key: String,
 }
 
 impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
@@ -404,6 +413,47 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
         rest.routing.propagate(message, &[]);
 
         Ok(ErasedJson::pretty(tx_id))
+    }
+
+    // POST /<network>/transaction/transfer
+    pub(crate) async fn transaction_transfer(
+        State(rest): State<Self>,
+        Json(request): Json<TransferRequest>,
+    ) -> Result<ErasedJson, RestError> {
+        let TransferRequest { to, amount, private_key } = request;
+        let transaction = {
+            // Initialize an RNG.
+            let rng = &mut rand::thread_rng();
+
+            let private_key = PrivateKey::from_str(&private_key)?;
+            let inputs = [Value::from_str(&format!("{to}"))?, Value::from_str(&format!("{amount}u64"))?];
+
+            // Create a new transaction.
+            rest.ledger.vm().execute(
+                &private_key,
+                ("credits.aleo", "transfer_public"),
+                inputs.iter(),
+                None,
+                0,
+                None,
+                rng,
+            )?
+        };
+
+        if let Some(consensus) = rest.consensus {
+            // Add the unconfirmed transaction to the memory pool.
+            consensus.add_unconfirmed_transaction(transaction.clone()).await?;
+        }
+
+        let transaction_id = transaction.id();
+        let message = Message::UnconfirmedTransaction(UnconfirmedTransaction {
+            transaction_id: transaction_id.clone(),
+            transaction: Data::Object(transaction),
+        });
+
+        // Broadcast the transaction.
+        rest.routing.propagate(message, &[]);
+        Ok(ErasedJson::pretty(transaction_id))
     }
 
     // POST /<network>/solution/broadcast
