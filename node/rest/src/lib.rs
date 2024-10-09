@@ -165,6 +165,7 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
             .route(&format!("/{network}/transaction/:id"), get(Self::get_transaction))
             .route(&format!("/{network}/transaction/confirmed/:id"), get(Self::get_confirmed_transaction))
             .route(&format!("/{network}/transaction/broadcast"), post(Self::transaction_broadcast))
+            .route(&format!("/{network}/transaction/transfer"), post(Self::transaction_transfer))
 
             // POST ../solution/broadcast
             .route(&format!("/{network}/solution/broadcast"), post(Self::solution_broadcast))
