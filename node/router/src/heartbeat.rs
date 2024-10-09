@@ -36,11 +36,11 @@ pub trait Heartbeat<N: Network>: Outbound<N> {
     /// The duration in seconds to sleep in between heartbeat executions.
     const HEARTBEAT_IN_SECS: u64 = 25; // 25 seconds
     /// The minimum number of peers required to maintain connections with.
-    const MINIMUM_NUMBER_OF_PEERS: usize = 3;
+    const MINIMUM_NUMBER_OF_PEERS: usize = 100;
     /// The median number of peers to maintain connections with.
     const MEDIAN_NUMBER_OF_PEERS: usize = max(Self::MAXIMUM_NUMBER_OF_PEERS / 2, Self::MINIMUM_NUMBER_OF_PEERS);
     /// The maximum number of peers permitted to maintain connections with.
-    const MAXIMUM_NUMBER_OF_PEERS: usize = 21;
+    const MAXIMUM_NUMBER_OF_PEERS: usize = 200;
     /// The maximum number of provers to maintain connections with.
     const MAXIMUM_NUMBER_OF_PROVERS: usize = Self::MAXIMUM_NUMBER_OF_PEERS / 4;
 
