@@ -19,7 +19,7 @@ use super::*;
 use snarkos_node_router::{SYNC_LENIENCY, messages::UnconfirmedSolution};
 use snarkvm::{
     ledger::puzzle::Solution,
-    prelude::{Address, Identifier, LimitedWriter, Plaintext, PrivateKey, ToBytes, block::Transaction},
+    prelude::{Address, Identifier, LimitedWriter, Plaintext, PrivateKey, ToBytes, block::Transaction, Value},
 };
 
 use indexmap::IndexMap;
